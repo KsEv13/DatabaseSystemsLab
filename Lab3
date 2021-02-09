@@ -1,0 +1,50 @@
+--VIEWS:
+DROP VIEW Duplicates;
+CREATE VIEW Duplicates AS 
+	SELECT customer.first_name FROM customer 
+	GROUP BY customer.first_name HAVING count(1)>1;
+
+DROP VIEW IndecentFilms;
+CREATE VIEW IndecentFilms AS 
+	SELECT film.film_id, rating FROM film
+	WHERE film.rating = 'NC-17' OR film.rating = 'R';
+	
+--TRIGGER length of the film with ads (5 minutes):
+CREATE OR REPLACE FUNCTION public.lwithads()
+  RETURNS TRIGGER
+  LANGUAGE PLPGSQL
+  AS
+$$
+BEGIN
+   NEW.length=OLD.length+5;
+   RETURN NEW;
+END;
+$$
+
+CREATE TRIGGER addads
+BEFORE
+INSERT OR UPDATE
+ON film
+FOR EACH ROW EXECUTE PROCEDURE public.lwithads();
+
+
+--Order countries by id asc, then show the 12th to 17th rows.
+SELECT * FROM country ORDER BY country_id ASC OFFSET 11 LIMIT 6;
+
+--List all addresses in a city whose name starts with 'A’.
+SELECT city, address.* FROM city
+	LEFT JOIN address on city.city_id = address.city_id
+	WHERE upper(city.city) LIKE 'A%';
+
+--List all customers' first name, last name and the city they live in.
+SELECT first_name, last_name, city.city FROM customer
+	LEFT JOIN address on customer.address_id = address.address_id
+	LEFT JOIN city on address.city_id = city.city_id;
+	
+--Find all customers with at least one payment whose amount is greater than 11 dollars.
+SELECT customer.customer_id, first_name, last_name, payment.amount FROM customer
+	INNER JOIN payment on customer.customer_id = payment.customer_id
+	WHERE payment.amount > 11;
+
+--Find all duplicated first names in the customer table.
+SELECT * FROM Duplicates;
