@@ -1,0 +1,124 @@
+Exercise 1.1
+DROP VIEW ChosenFilms;
+CREATE VIEW ChosenFilms AS 
+    SELECT film.film_id, name, title FROM film_category
+    LEFT JOIN category on film_category.category_id = category.category_id
+    LEFT JOIN film on film.film_id = film_category.film_id
+    WHERE (name = 'Horror' or name = 'Sci-Fi') and (rating = 'R' OR rating = 'PG-13');
+
+SELECT customer.first_name, customer.last_name, ChosenFilms.title FROM customer, ChosenFilms
+WHERE chosenfilms.title NOT IN (SELECT chosenfilms.title from rental, inventory, chosenfilms
+    WHERE customer.customer_id = rental.customer_id 
+    AND rental.inventory_id = inventory.inventory_id 
+    AND inventory.film_id = chosenfilms.film_id);
+   
+Exercise 1.2
+SELECT city.city, store.store_id, SUM(payment.amount)
+FROM payment
+        JOIN staff ON payment.staff_id = staff.staff_id
+        JOIN store ON staff.store_id = store.store_id
+        JOIN address ON store.address_id = address.address_id
+        JOIN city ON address.city_id = city.city_id
+WHERE
+   date_trunc('month', payment_date) IN 
+	(SELECT date_trunc('month', max(payment_date)) FROM payment) 
+	GROUP BY staff.staff_id, city.city, store.store_id;
+
+The performance is affected by nested loops, hashes, sequential scans, etc. In order to improve time we should use indexes (as in previous lab).
+
+Exercise 2.1
+EXPLAIN ANALYZE SELECT customer.first_name, customer.last_name, ChosenFilms.title FROM customer, ChosenFilms
+WHERE chosenfilms.title NOT IN (SELECT chosenfilms.title from rental, inventory, chosenfilms
+    WHERE customer.customer_id = rental.customer_id 
+    AND rental.inventory_id = inventory.inventory_id 
+    AND inventory.film_id = chosenfilms.film_id);
+    
+OUTPUT:    
+"Nested Loop  (cost=1.54..5357410.63 rows=14039 width=28) (actual time=3.931..63770.866 rows=33781 loops=1)"
+"  Join Filter: (NOT (SubPlan 1))"
+"  Rows Removed by Join Filter: 961"
+"  ->  Seq Scan on customer  (cost=0.00..14.99 rows=599 width=17) (actual time=0.046..0.382 rows=599 loops=1)"
+"  ->  Materialize  (cost=1.54..87.50 rows=47 width=15) (actual time=0.000..0.025 rows=58 loops=599)"
+"        ->  Nested Loop  (cost=1.54..87.27 rows=47 width=15) (actual time=0.133..0.955 rows=58 loops=1)"
+"              ->  Hash Join  (cost=1.26..20.58 rows=125 width=2) (actual time=0.099..0.428 rows=117 loops=1)"
+"                    Hash Cond: (film_category.category_id = category.category_id)"
+"                    ->  Seq Scan on film_category  (cost=0.00..16.00 rows=1000 width=4) (actual time=0.025..0.117 rows=1000 loops=1)"
+"                    ->  Hash  (cost=1.24..1.24 rows=2 width=4) (actual time=0.053..0.054 rows=2 loops=1)"
+"                          Buckets: 1024  Batches: 1  Memory Usage: 9kB"
+"                          ->  Seq Scan on category  (cost=0.00..1.24 rows=2 width=4) (actual time=0.031..0.035 rows=2 loops=1)"
+"                                Filter: (((name)::text = 'Horror'::text) OR ((name)::text = 'Sci-Fi'::text))"
+"                                Rows Removed by Filter: 14"
+"              ->  Index Scan using film_pkey on film  (cost=0.28..0.53 rows=1 width=19) (actual time=0.004..0.004 rows=0 loops=117)"
+"                    Index Cond: (film_id = film_category.film_id)"
+"                    Filter: ((rating = 'R'::mpaa_rating) OR (rating = 'PG-13'::mpaa_rating))"
+"                    Rows Removed by Filter: 1"
+"  SubPlan 1"
+"    ->  Nested Loop  (cost=88.14..292.41 rows=1 width=15) (actual time=0.893..1.813 rows=2 loops=34742)"
+"          ->  Hash Join  (cost=87.86..177.99 rows=215 width=19) (actual time=0.009..0.887 rows=272 loops=34742)"
+"                Hash Cond: (inventory.film_id = film_1.film_id)"
+"                ->  Seq Scan on inventory  (cost=0.00..70.81 rows=4581 width=6) (actual time=0.002..0.331 rows=4516 loops=34742)"
+"                ->  Hash  (cost=87.27..87.27 rows=47 width=21) (actual time=1.319..1.321 rows=58 loops=1)"
+"                      Buckets: 1024  Batches: 1  Memory Usage: 12kB"
+"                      ->  Nested Loop  (cost=1.54..87.27 rows=47 width=21) (actual time=0.105..1.272 rows=58 loops=1)"
+"                            ->  Hash Join  (cost=1.26..20.58 rows=125 width=2) (actual time=0.076..0.556 rows=117 loops=1)"
+"                                  Hash Cond: (film_category_1.category_id = category_1.category_id)"
+"                                  ->  Seq Scan on film_category film_category_1  (cost=0.00..16.00 rows=1000 width=4) (actual time=0.024..0.252 rows=1000 loops=1)"
+"                                  ->  Hash  (cost=1.24..1.24 rows=2 width=4) (actual time=0.033..0.033 rows=2 loops=1)"
+"                                        Buckets: 1024  Batches: 1  Memory Usage: 9kB"
+"                                        ->  Seq Scan on category category_1  (cost=0.00..1.24 rows=2 width=4) (actual time=0.023..0.026 rows=2 loops=1)"
+"                                              Filter: (((name)::text = 'Horror'::text) OR ((name)::text = 'Sci-Fi'::text))"
+"                                              Rows Removed by Filter: 14"
+"                            ->  Index Scan using film_pkey on film film_1  (cost=0.28..0.53 rows=1 width=19) (actual time=0.005..0.005 rows=0 loops=117)"
+"                                  Index Cond: (film_id = film_category_1.film_id)"
+"                                  Filter: ((rating = 'R'::mpaa_rating) OR (rating = 'PG-13'::mpaa_rating))"
+"                                  Rows Removed by Filter: 1"
+"          ->  Index Scan using idx_fk_inventory_id on rental  (cost=0.29..0.52 rows=1 width=4) (actual time=0.003..0.003 rows=0 loops=9456025)"
+"                Index Cond: (inventory_id = inventory.inventory_id)"
+"                Filter: (customer.customer_id = customer_id)"
+"                Rows Removed by Filter: 4"
+"Planning Time: 3.294 ms"
+"Execution Time: 63781.408 ms"
+
+Exercise 2.1
+EXPLAIN ANALYZE SELECT city.city, store.store_id, SUM(payment.amount)
+FROM payment
+        JOIN staff ON payment.staff_id = staff.staff_id
+        JOIN store ON staff.store_id = store.store_id
+        JOIN address ON store.address_id = address.address_id
+        JOIN city ON address.city_id = city.city_id
+WHERE
+   date_trunc('month', payment_date) IN 
+	(SELECT date_trunc('month', max(payment_date)) FROM payment) 
+	GROUP BY staff.staff_id, city.city, store.store_id;
+  
+ OUTPUT:
+ "HashAggregate  (cost=607.55..608.46 rows=73 width=49) (actual time=16.333..16.341 rows=2 loops=1)"
+"  Group Key: staff.staff_id, city.city, store.store_id"
+"  Batches: 1  Memory Usage: 24kB"
+"  ->  Nested Loop  (cost=291.80..606.82 rows=73 width=23) (actual time=15.316..16.106 rows=182 loops=1)"
+"        Join Filter: (payment.staff_id = staff.staff_id)"
+"        Rows Removed by Join Filter: 182"
+"        ->  Hash Join  (cost=290.48..585.48 rows=73 width=8) (actual time=15.101..15.397 rows=182 loops=1)"
+"              Hash Cond: (date_trunc('month'::text, payment.payment_date) = (date_trunc('month'::text, max(payment_1.payment_date))))"
+"              ->  Seq Scan on payment  (cost=0.00..253.96 rows=14596 width=16) (actual time=0.044..1.845 rows=14596 loops=1)"
+"              ->  Hash  (cost=290.47..290.47 rows=1 width=8) (actual time=5.399..5.400 rows=1 loops=1)"
+"                    Buckets: 1024  Batches: 1  Memory Usage: 9kB"
+"                    ->  Aggregate  (cost=290.45..290.46 rows=1 width=8) (actual time=5.382..5.383 rows=1 loops=1)"
+"                          ->  Seq Scan on payment payment_1  (cost=0.00..253.96 rows=14596 width=8) (actual time=0.030..1.907 rows=14596 loops=1)"
+"        ->  Materialize  (cost=1.32..19.16 rows=2 width=17) (actual time=0.001..0.003 rows=2 loops=182)"
+"              ->  Nested Loop  (cost=1.32..19.15 rows=2 width=17) (actual time=0.188..0.454 rows=2 loops=1)"
+"                    ->  Nested Loop  (cost=1.04..18.44 rows=2 width=10) (actual time=0.159..0.416 rows=2 loops=1)"
+"                          Join Filter: (store.store_id = staff.store_id)"
+"                          Rows Removed by Join Filter: 2"
+"                          ->  Hash Join  (cost=1.04..17.36 rows=2 width=6) (actual time=0.094..0.347 rows=2 loops=1)"
+"                                Hash Cond: (address.address_id = store.address_id)"
+"                                ->  Seq Scan on address  (cost=0.00..14.03 rows=603 width=6) (actual time=0.042..0.184 rows=603 loops=1)"
+"                                ->  Hash  (cost=1.02..1.02 rows=2 width=6) (actual time=0.028..0.029 rows=2 loops=1)"
+"                                      Buckets: 1024  Batches: 1  Memory Usage: 9kB"
+"                                      ->  Seq Scan on store  (cost=0.00..1.02 rows=2 width=6) (actual time=0.020..0.022 rows=2 loops=1)"
+"                          ->  Materialize  (cost=0.00..1.03 rows=2 width=6) (actual time=0.031..0.032 rows=2 loops=2)"
+"                                ->  Seq Scan on staff  (cost=0.00..1.02 rows=2 width=6) (actual time=0.053..0.054 rows=2 loops=1)"
+"                    ->  Index Scan using city_pkey on city  (cost=0.28..0.35 rows=1 width=13) (actual time=0.015..0.016 rows=1 loops=2)"
+"                          Index Cond: (city_id = address.city_id)"
+"Planning Time: 2.096 ms"
+"Execution Time: 16.562 ms"
