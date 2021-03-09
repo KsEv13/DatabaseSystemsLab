@@ -1,0 +1,22 @@
+CREATE OR REPLACE FUNCTION retrievecustomers(customer_id1 integer, customer_id2 integer)
+RETURNS SETOF customer AS $$
+BEGIN 
+	IF customer_id1 < 0 or customer_id2 < 0 THEN
+		RAISE EXCEPTION 'Id should be positive';
+	ELSIF customer_id1 > 600 or customer_id2 > 600 THEN
+  		RAISE EXCEPTION 'Id should be not more than 600';
+	ELSE RETURN QUERY SELECT * FROM customer LIMIT (customer_id2-customer_id1) OFFSET customer_id1;
+	END IF;
+END; $$
+LANGUAGE plpgsql;
+
+select * FROM retrievecustomers(7, 13);
+
+
+*Output will be:*
+7	1	"Maria"	"Miller"	"maria.miller@sakilacustomer.org"	11	true	"2006-02-14"	"2013-05-26 14:49:45.738"	1
+8	2	"Susan"	"Wilson"	"susan.wilson@sakilacustomer.org"	12	true	"2006-02-14"	"2013-05-26 14:49:45.738"	1
+9	2	"Margaret"	"Moore"	"margaret.moore@sakilacustomer.org"	13	true	"2006-02-14"	"2013-05-26 14:49:45.738"	1
+10	1	"Dorothy"	"Taylor"	"dorothy.taylor@sakilacustomer.org"	14	true	"2006-02-14"	"2013-05-26 14:49:45.738"	1
+11	2	"Lisa"	"Anderson"	"lisa.anderson@sakilacustomer.org"	15	true	"2006-02-14"	"2013-05-26 14:49:45.738"	1
+12	1	"Nancy"	"Thomas"	"nancy.thomas@sakilacustomer.org"	16	true	"2006-02-14"	"2013-05-26 14:49:45.738"	1
