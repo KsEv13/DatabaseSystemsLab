@@ -1,0 +1,548 @@
+EXERCISE #1
+------------------ READ COMMITTED ISOLATION --------------------------------------------------------------------------------
+
+Step #1. Terminal 1.
+
+postgres=# begin transaction isolation level read committed;
+BEGIN
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+(5 rows)
+
+Step #2 and Step #4(Displaying). Terminal 2.
+
+postgres=# begin transaction isolation level read committed;
+BEGIN
+postgres=*#  Update accounts2 set username='ajones' where fullname='Alice Jones';
+UPDATE 1
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      82 |        1
+(5 rows)
+
+Step #3(Displaying). Terminal 1.
+
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+(5 rows)
+
+Conclusion after steps 3 and 4:
+The tables that we get after these transactions are different, 
+since the table that we get in the 1st terminal is not updated, 
+until the changes in the 2nd terminal (2nd transaction) are not committed.
+
+Step #5. Terminal 2 (When using command "select * from accounts2" in the Terminal #1, we will get the same table as in the Terminal #2).
+
+postgres=*# commit;
+COMMIT
+~ IN BOTH: ~
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      82 |        1
+(5 rows)
+
+Step #6. Terminal 2.
+
+postgres=# begin transaction isolation level read committed;
+BEGIN
+
+Step #7. Terminal 1.
+
+postgres=*# Update accounts2 set balance=balance+10 where fullname='Alice Jones';
+UPDATE 1
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      92 |        1
+(5 rows)
+
+Step #8. Terminal 2.
+
+postgres=*# Update accounts2 set balance=balance+20 where fullname='Alice Jones';  -> No output
+Conclusion for the step # 8:
+We are using this command, but not receiving the output, since it is blocked,
+until the transaction in the Termina l will be finished 
+
+Step #9. Terminal 1.
+
+postgres=*# commit;
+COMMIT
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      92 |        1
+(5 rows)
+
+After the step #9. Terminal 2:
+The previous command is successfully executed:
+
+postgres=*# Update accounts2 set balance=balance+20 where fullname='Alice Jones';
+UPDATE 1
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |     112 |        1
+(5 rows)
+
+Step #10. Terminal 2.
+
+postgres=*# rollback;
+ROLLBACK
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      92 |        1
+(5 rows)
+
+
+------------------ REPEATABLE READ ISOLATION --------------------------------------------------------------------------------
+
+Step #1. Terminal 1.
+
+postgres=# begin transaction isolation level  repeatable read;
+BEGIN
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+(5 rows)
+
+Step #2 and Step #4(Displaying). Terminal 2.
+
+postgres=# begin transaction isolation level read committed;
+BEGIN
+postgres=*#  Update accounts2 set username='ajones' where fullname='Alice Jones';
+UPDATE 1
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      82 |        1
+(5 rows)
+
+Step #3(Displaying). Terminal 1.
+
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+(5 rows)
+
+Conclusion after steps 3 and 4:
+The tables that we get after these transactions are different,
+since the table that we get in the Terminal 1 is not updated. 
+Moreover, since we are using repeatable read, in the first terminal 
+we later will see unchenged table, in order to prevent anomaly which occurs 
+when the first transaction reads the same row twice, and in between the reads, 
+the second transaction modifies the row and commits the changes. 
+(Otherwise, the first transaction will get different results.)
+
+Step #5. Terminal 2.
+
+postgres=*# commit;
+COMMIT
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      82 |        1
+(5 rows)
+
+Step #5. Terminal 1.
+
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+(5 rows)
+
+Step #6. Terminal 2.
+
+postgres=# begin transaction isolation level read committed;
+BEGIN
+
+Step #7. Terminal 1.
+
+postgres=*# Update accounts2 set balance=balance+10 where fullname='Alice Jones';
+-> We will get the error
+
+Step #8. Terminal 2.
+
+postgres=*# Update accounts2 set balance=balance+20 where fullname='Alice Jones';
+-> We will get the error
+
+Conclusion after steps 7 and 8:
+Due to the anomaly prevention the terminals will be blocked from changing the data until the commit.
+
+Step #9. Terminal 1.
+
+postgres=*# commit;
+COMMIT
+
+Step #10. Terminal 2.
+
+postgres=*# rollback;
+ROLLBACK
+
+After steps 9 and 10. Both terminals:
+
+postgres=*# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ mike     | Michael Dole     |      73 |        2
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ ajones   | Alice Jones      |      82 |        1
+(5 rows)
+
+----------------------------------------------------------------------------------------------------------------------------
+
+EXERCISE #2
+
+------------------ READ COMMITTED ISOLATION -----------------------
+– Start a transaction (T1 & T2)
+
+In both terminals:
+postgres=# begin transaction isolation level read committed;
+BEGIN
+
+– Read accounts with group_id=2 (T1).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+(1 row)
+
+– Move Bob to group 2(T2).
+
+postgres=*#  Update accounts2 set group_id = 2 where fullname='Bob Brown';
+UPDATE 1
+
+– Read accounts with group_id=2 (T1).
+We still have the same table, since the second terminal hasn't been updated:
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+(1 row)
+
+– Update selected accounts balances by +15 (T1).
+
+postgres=*# Update accounts2 set balance=balance+15 where group_id = 2;
+UPDATE 1
+
+– Commit transaction (T1&T2).
+
+postgres=*# commit;
+COMMIT
+
+In both terminals we will see the following table:
+
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        2
+ mike     | Michael Dole     |      88 |        2
+(5 rows)
+
+THE CONCLUSION: In the final committed table only the Michael's balance is changed by 15. 
+It is happenned, since we change the balance only where group_id is equal to 2, but changes with Bob's group_id is not committed yet, 
+therefore, it is not updated and is not chosen in the first terminal for the balance changes.
+
+------------------ REPEATABLE READ ISOLATION ----------------------------------------------------------
+
+– Start a transaction (T1 & T2)
+
+In both terminals:
+postgres=# begin transaction isolation level repeatable read;
+BEGIN
+
+– Read accounts with group_id=2 (T1).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+(1 row)
+
+– Move Bob to group 2(T2).
+
+postgres=*#  Update accounts2 set group_id = 2 where fullname='Bob Brown';
+UPDATE 1
+
+– Read accounts with group_id=2 (T1).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+(1 row)
+
+– Update selected accounts balances by +15 (T1)
+
+postgres=*# Update accounts2 set balance=balance+15 where group_id = 2;
+UPDATE 1
+
+– Commit transaction (T1).
+
+postgres=*# commit;
+COMMIT
+
+– Commit transaction (T2).
+
+postgres=*# commit;
+COMMIT
+
+In both terminals we will see the following table:
+
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        2
+ mike     | Michael Dole     |      88 |        2
+(5 rows)
+
+THE CONCLUSION: In the final committed table only the Michael's balance is changed by 15. 
+It is happenned, since we change the balance only where group_id is equal to 2, but changes with Bob's group_id is not committed yet, 
+therefore, it is not updated and is not chosen in the first terminal for the balance changes.
+
+----------------------------------------------------------------------------------------------------------------------------
+
+EXERCISE #3
+
+------------------ REPEATABLE READ ISOLATION ----------------------------------------------------------
+
+– Start a transaction in both terminals and set the same transaction isolation level (T1 & T2).
+
+postgres=# begin transaction isolation level repeatable read;
+BEGIN
+
+– Read the sum of accounts balances with group_id=2 (T1).
+
+postgres=*# select sum(balance) from accounts2 where group_id=2;
+ sum
+-----
+  73
+(1 row)
+
+– Move Bob to group 2 (T2).
+
+postgres=*#  Update accounts2 set group_id = 2 where fullname='Bob Brown';
+UPDATE 1
+
+– Read accounts with group_id=2 (T1).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+(1 row)
+
+– Update selected accounts’ balances by +sum (T1).
+
+postgres=*# Update accounts2 set balance=balance+(select sum(balance) from accounts2 where group_id=2) where group_id = 2;
+UPDATE 1
+
+– Read accounts with group_id=2 (T1).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |     146 |        2
+(1 row)
+
+-– Read accounts with group_id=2 (T2).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+ bbrown   | Bob Brown    |     100 |        2
+(2 rows)
+
+– Commit (T1&T2).
+
+postgres=*# commit;
+COMMIT
+
+- Displaying the final committed table:
+
+postgres=# select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        2
+ mike     | Michael Dole     |     146 |        2
+(5 rows)
+
+THE CONCLUSION: In the final committed table the Michael's balance is doubled as
+we added the sum of balances where group_id was equal to 2, but only Michael in the Termainal 1 at that time was with this group_id. 
+And Bob's group_id is also updated in the final tabl, but only after the committing. Therefore, his balance is not updated (during the changes in Terminal 1).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------ SERIALIZABLE ISOLATION ----------------------------------------------------------
+
+– Start a transaction in both terminals and set the same transaction isolation level (T1 & T2).
+
+postgres=# begin transaction isolation level serializable;
+BEGIN
+
+– Read the sum of accounts balances with group_id=2 (T1).
+
+postgres=*# select sum(balance) from accounts2 where group_id=2;
+ sum
+-----
+  73
+(1 row)
+
+– Move Bob to group 2 (T2).
+
+postgres=*#  Update accounts2 set group_id = 2 where fullname='Bob Brown';
+UPDATE 1
+
+– Read accounts with group_id=2 (T1).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+(1 row)
+
+– Update selected accounts’ balances by +sum (T1).
+
+postgres=*# Update accounts2 set balance=balance+(select sum(balance) from accounts2 where group_id=2) where group_id = 2;
+UPDATE 1
+
+– Read accounts with group_id=2 (T1).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |     146 |        2
+(1 row)
+
+-– Read accounts with group_id=2 (T2).
+
+postgres=*# select * from accounts2 where group_id = 2;
+ username |   fullname   | balance | group_id
+----------+--------------+---------+----------
+ mike     | Michael Dole |      73 |        2
+ bbrown   | Bob Brown    |     100 |        2
+(2 rows)
+
+– Commit (T1).
+
+postgres=*# commit;
+COMMIT
+
+– Commit (T2).
+
+postgres=*# commit;
+ERROR: failed to serialize access due to read/write dependencies between transactions
+DETAIL: Reason code: Canceled when identifying as a pivot, during a commit attempt.
+HINT: The transaction may succeed on the next attempt.
+
+- Displaying the final committed table:
+
+postgres=#  select * from accounts2;
+ username |     fullname     | balance | group_id
+----------+------------------+---------+----------
+ jones    | Alice Jones      |      82 |        1
+ bitdiddl | Ben Bitdiddle    |      65 |        1
+ alyssa   | Alyssa P. Hacker |      79 |        3
+ bbrown   | Bob Brown        |     100 |        3
+ mike     | Michael Dole     |     146 |        2
+(5 rows)
+
+THE CONCLUSION: In the final committed table the Michael's balance is doubled as
+we added the sum of balances where group_id was equal to 2, but only Michael in the Termainal 1 at that time was with this group_id. 
+And Bob's group_id is not updated in the final table, since there is an occured error in the commit in the Terminal 2 
+due to the transaction dependencies. Therefore, his balance and group_id are not updated (during the changes in Terminal 1).
